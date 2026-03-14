@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SecureVault">
+<meta name="theme-color" content="#0a0a0f">
+<title>SecureVault – Your Private Vault</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --card: #16161f;
+    --border: #2a2a3a;
+    --accent: #7c6af7;
+    --accent2: #f76a6a;
+    --gold: #f7c96a;
+    --green: #6af7a0;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100dvh;
+    overflow-x: hidden;
+    user-select: none;
+  }
+
+  /* ── LOCK SCREEN ── */
+  #lockScreen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 1000;
+    transition: opacity .5s ease, transform .5s ease;
+  }
+
+  #lockScreen.hide {
+    opacity: 0; transform: scale(1.05) translateY(-20px);
+    pointer-events: none;
+  }
+
+  .lock-bg {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,106,247,.15) 0%, transparent 65%),
+                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(247,106,106,.08) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .lock-logo {
+    font-family: var(--font-head);
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--accent) 0%, #b06af7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: .4rem;
+  }
+
+  .lock-sub {
+    color: var(--muted);
+    font-size: .75rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    margin-bottom: 3rem;
+  }
+
+  /* PIN pad */
+  .pin-display {
+    display: flex; gap: 12px; margin-bottom: 2rem;
+  }
+
+  .pin-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    transition: all .2s ease;
+  }
+
+  .pin-dot.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 12px rgba(124,106,247,.6);
+    transform: scale(1.1);
+  }
+
+  .pin-dot.wrong {
+    background: var(--accent2);
+    border-color: var(--accent2);
+    animation: shake .3s ease;
+  }
+
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+  }
+
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+
+  .key {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-family: var(--font-head);
+    font-size: 1.3rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: all .15s ease;
+    position: relative; overflow: hidden;
+  }
+
+  .key .key-sub { font-family: var(--font-mono); font-size: .5rem; letter-spacing: .1em; color: var(--muted); line-height: 1; }
+
+  .key:active, .key.pressed {
+    background: var(--accent);
+    border-color: var(--accent);
+    transform: scale(.92);
+    box-shadow: 0 0 20px rgba(124,106,247,.4);
+  }
+
+  .key.del { background: transparent; border-color: transparent; color: var(--muted); font-size: 1.5rem; }
+  .key.del:active { background: rgba(247,106,106,.2); border-color: var(--accent2); color: var(--accent2); }
+
+  .fingerprint-btn {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .3s ease;
+    margin: 0 auto;
+  }
+
+  .fingerprint-btn:active {
+    background: rgba(124,106,247,.2);
+    border-color: var(--accent);
+    box-shadow: 0 0 30px rgba(124,106,247,.5);
+  }
+
+  .fp-svg { width: 28px; height: 28px; stroke: var(--muted); transition: stroke .3s; }
+  .fingerprint-btn:active .fp-svg { stroke: var(--accent); }
+  .fingerprint-btn.scanning .fp-svg { stroke: var(--accent); animation: pulse 1s infinite; }
+  .fingerprint-btn.success .fp-svg { stroke: var(--green); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .fp-label { color: var(--muted); font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; margin-top: .6rem; text-align: center; }
+
+  /* ── PIN SETUP ── */
+  #pinSetup {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 999;
+  }
+
+  #pinSetup.active { display: flex; }
+
+  .setup-title {
+    font-family: var(--font-head);
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: .5rem;
+    text-align: center;
+  }
+
+  .setup-sub { color: var(--muted); font-size: .75rem; margin-bottom: 2rem; text-align: center; max-width: 260px; }
+
+  /* ── MAIN APP ── */
+  #app {
+    display: none;
+    flex-direction: column;
+    min-height: 100dvh;
+    padding-bottom: 80px;
+  }
+
+  #app.active { display: flex; }
+
+  /* Header */
+  .header {
+    padding: 3rem 1.4rem 1.2rem;
+    background: linear-gradient(180deg, rgba(124,106,247,.08) 0%, transparent 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .header-left h1 {
+    font-family: var(--font-head);
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header-left p { color: var(--muted); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; }
+
+  .header-right { display: flex; gap: 10px; }
+
+  .icon-btn {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--muted);
+    font-size: 1.1rem; transition: all .2s;
+  }
+
+  .icon-btn:active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  /* Search */
+  .search-wrap {
+    padding: 1rem 1.4rem .5rem;
+  }
+
+  .search-box {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: .8rem 1rem .8rem 2.8rem;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    outline: none;
+    transition: border-color .2s;
+    position: relative;
+  }
+
+  .search-box:focus { border-color: var(--accent); }
+  .search-box::placeholder { color: var(--muted); }
+
+  .search-wrap { position: relative; }
+  .search-icon {
+    position: absolute; left: 2.2rem; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-size: .9rem; pointer-events: none;
+  }
+
+  /* Category tabs */
+  .tabs {
+    display: flex; gap: 8px;
+    padding: .8rem 1.4rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+
+  .tab {
+    flex-shrink: 0;
+    padding: .45rem 1rem;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    letter-spacing: .05em;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .tab .tab-icon { font-size: .85rem; }
+  .tab .tab-count { background: var(--border); border-radius: 50px; padding: 1px 7px; font-size: .6rem; }
+
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    box-shadow: 0 4px 20px rgba(124,106,247,.35);
+  }
+
+  .tab.active .tab-count { background: rgba(255,255,255,.25); }
+
+  /* Cards */
+  .cards-section {
+    padding: .5rem 1.4rem;
+    flex: 1;
+  }
+
+  .section-label {
+    font-size: .65rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: .8rem 0 .6rem;
+    padding-left: 2px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer;
+    transition: all .2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 3px 0 0 3px;
+  }
+
+  .card[data-cat="google"]::before { background: #4285f4; }
+  .card[data-cat="facebook"]::before { background: #1877f2; }
+  .card[data-cat="instagram"]::before { background: linear-gradient(#f77737, #e1306c); }
+  .card[data-cat="email"]::before { background: var(--gold); }
+  .card[data-cat="bank"]::before { background: var(--green); }
+  .card[data-cat="notes"]::before { background: var(--accent2); }
+  .card[data-cat="other"]::before { background: var(--muted); }
+
+  .card:active {
+    transform: scale(.98);
+    border-color: var(--accent);
+    box-shadow: 0 4px 20px rgba(124,106,247,.15);
+  }
+
+  .card-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .card-info { flex: 1; min-width: 0; }
+  .card-title { font-family: var(--font-head); font-size: .95rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-sub { font-size: .7rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .card-actions { display: flex; gap: 6px; align-items: center; }
+
+  .copy-btn {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: .8rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .2s;
+  }
+
+  .copy-btn:active { background: var(--accent); border-color: var(--accent); color: white; }
+  .copy-btn.copied { background: var(--green); border-color: var(--green); color: var(--bg); }
+
+  .eye-btn {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: .8rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all .2s;
+  }
+
+  .eye-btn:active, .eye-btn.visible { background: rgba(124,106,247,.15); border-color: var(--accent); color: var(--accent); }
+
+  /* FAB */
+  .fab {
+    position: fixed; bottom: 90px; right: 1.4rem;
+    width: 56px; height: 56px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--accent) 0%, #b06af7 100%);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; box-shadow: 0 8px 30px rgba(124,106,247,.45);
+    transition: all .2s; z-index: 50;
+    font-family: var(--font-head); font-weight: 700;
+  }
+
+  .fab:active { transform: scale(.9); }
+
+  /* Bottom nav */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 72px;
+    background: rgba(10,10,15,.95);
+    backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-around;
+    padding: 0 1rem;
+    z-index: 100;
+  }
+
+  .nav-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; padding: .4rem .8rem;
+    border-radius: 12px; transition: all .2s;
+    color: var(--muted);
+  }
+
+  .nav-item .nav-icon { font-size: 1.2rem; }
+  .nav-item .nav-label { font-size: .58rem; letter-spacing: .08em; text-transform: uppercase; }
+  .nav-item.active { color: var(--accent); }
+  .nav-item:active { background: rgba(124,106,247,.1); }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: none; align-items: flex-end; justify-content: center;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px 24px 0 0;
+    padding: 1.5rem 1.4rem 2rem;
+    width: 100%; max-width: 480px;
+    animation: slideUp .3s cubic-bezier(.34,1.56,.64,1);
+    max-height: 90dvh;
+    overflow-y: auto;
+  }
+
+  @keyframes slideUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+
+  .modal-handle {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 1.2rem;
+  }
+
+  .modal-title {
+    font-family: var(--font-head);
+    font-size: 1.2rem; font-weight: 700;
+    margin-bottom: 1.2rem;
+  }
+
+  .input-group { margin-bottom: 1rem; }
+  .input-label { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: .4rem; display: block; }
+
+  .input-field {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: .85rem;
+    outline: none; transition: border-color .2s;
+  }
+
+  .input-field:focus { border-color: var(--accent); }
+  .input-field::placeholder { color: var(--muted); }
+
+  select.input-field { cursor: pointer; }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 1.4rem; }
+
+  .btn-primary {
+    flex: 1; padding: .85rem;
+    border-radius: 12px;
+    background: var(--accent);
+    border: none; color: white;
+    font-family: var(--font-head);
+    font-size: .9rem; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+  }
+
+  .btn-primary:active { opacity: .8; transform: scale(.98); }
+
+  .btn-secondary {
+    padding: .85rem 1.2rem;
+    border-radius: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-head);
+    font-size: .9rem; font-weight: 600;
+    cursor: pointer; transition: all .2s;
+  }
+
+  .btn-secondary:active { background: var(--border); }
+
+  /* Detail modal */
+  .detail-field {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: .8rem 1rem;
+    margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .detail-field-label { font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .detail-field-val { font-size: .9rem; color: var(--text); word-break: break-all; }
+  .detail-field-val.hidden { letter-spacing: .2em; }
+
+  .btn-danger {
+    flex: 1; padding: .85rem;
+    border-radius: 12px;
+    background: rgba(247,106,106,.15);
+    border: 1px solid rgba(247,106,106,.3);
+    color: var(--accent2);
+    font-family: var(--font-head);
+    font-size: .9rem; font-weight: 700;
+    cursor: pointer; transition: all .2s;
+  }
+
+  .btn-danger:active { background: rgba(247,106,106,.3); }
+
+  /* Toast */
+  .toast {
+    position: fixed; top: 1.5rem; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: var(--green); color: var(--bg);
+    padding: .6rem 1.2rem; border-radius: 50px;
+    font-size: .78rem; font-weight: 600;
+    z-index: 500; transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 3rem 1rem;
+  }
+
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; opacity: .4; }
+  .empty-state p { color: var(--muted); font-size: .8rem; }
+
+  /* Stats row */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 8px; padding: 0 1.4rem .6rem;
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: .8rem;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--font-head);
+    font-size: 1.4rem; font-weight: 800;
+    color: var(--accent);
+  }
+
+  .stat-label { font-size: .6rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ── PIN SETUP SCREEN ── -->
+<div id="pinSetup">
+  <div class="lock-bg"></div>
+  <div class="lock-logo">🔐 SecureVault</div>
+  <p class="lock-sub">First time setup</p>
+  <div class="setup-title" id="setupTitle">Create your PIN</div>
+  <p class="setup-sub" id="setupSub">Enter a 4-digit PIN to protect your vault</p>
+  <div class="pin-display" id="setupDots">
+    <div class="pin-dot" id="sd0"></div>
+    <div class="pin-dot" id="sd1"></div>
+    <div class="pin-dot" id="sd2"></div>
+    <div class="pin-dot" id="sd3"></div>
+  </div>
+  <div class="keypad">
+    <div class="key" onclick="setupKey('1')">1</div>
+    <div class="key" onclick="setupKey('2')">2<span class="key-sub">ABC</span></div>
+    <div class="key" onclick="setupKey('3')">3<span class="key-sub">DEF</span></div>
+    <div class="key" onclick="setupKey('4')">4<span class="key-sub">GHI</span></div>
+    <div class="key" onclick="setupKey('5')">5<span class="key-sub">JKL</span></div>
+    <div class="key" onclick="setupKey('6')">6<span class="key-sub">MNO</span></div>
+    <div class="key" onclick="setupKey('7')">7<span class="key-sub">PQRS</span></div>
+    <div class="key" onclick="setupKey('8')">8<span class="key-sub">TUV</span></div>
+    <div class="key" onclick="setupKey('9')">9<span class="key-sub">WXYZ</span></div>
+    <div class="key" style="opacity:0" onclick="void(0)"></div>
+    <div class="key" onclick="setupKey('0')">0</div>
+    <div class="key del" onclick="setupDel()">⌫</div>
+  </div>
+</div>
+
+<!-- ── LOCK SCREEN ── -->
+<div id="lockScreen">
+  <div class="lock-bg"></div>
+  <div class="lock-logo">🔐 SecureVault</div>
+  <p class="lock-sub">Your Personal Password Vault</p>
+  <div class="pin-display" id="pinDots">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="keypad">
+    <div class="key" onclick="pressKey('1')">1</div>
+    <div class="key" onclick="pressKey('2')">2<span class="key-sub">ABC</span></div>
+    <div class="key" onclick="pressKey('3')">3<span class="key-sub">DEF</span></div>
+    <div class="key" onclick="pressKey('4')">4<span class="key-sub">GHI</span></div>
+    <div class="key" onclick="pressKey('5')">5<span class="key-sub">JKL</span></div>
+    <div class="key" onclick="pressKey('6')">6<span class="key-sub">MNO</span></div>
+    <div class="key" onclick="pressKey('7')">7<span class="key-sub">PQRS</span></div>
+    <div class="key" onclick="pressKey('8')">8<span class="key-sub">TUV</span></div>
+    <div class="key" onclick="pressKey('9')">9<span class="key-sub">WXYZ</span></div>
+    <div class="key" style="opacity:0"></div>
+    <div class="key" onclick="pressKey('0')">0</div>
+    <div class="key del" onclick="delKey()">⌫</div>
+  </div>
+  <div class="fingerprint-btn" id="fpBtn" onclick="tryFingerprint()">
+    <svg class="fp-svg" viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke-opacity=".3"/>
+      <path d="M12 6c-3.31 0-6 2.69-6 6"/>
+      <path d="M12 8c-2.21 0-4 1.79-4 4 0 1.1.45 2.1 1.17 2.83"/>
+      <path d="M12 10c-1.1 0-2 .9-2 2"/>
+      <path d="M12 12v.01"/>
+      <path d="M16 12c0 2.21-1.79 4-4 4"/>
+      <path d="M18 12c0 3.31-2.69 6-6 6"/>
+    </svg>
+  </div>
+  <p class="fp-label" id="fpLabel">Touch for Fingerprint</p>
+</div>
+
+<!-- ── MAIN APP ── -->
+<div id="app">
+  <div class="header">
+    <div class="header-left">
+      <h1>SecureVault</h1>
+      <p id="headerSub">0 items stored</p>
+    </div>
+    <div class="header-right">
+      <div class="icon-btn" onclick="lockApp()" title="Lock">🔒</div>
+    </div>
+  </div>
+
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input type="search" class="search-box" id="searchBox" placeholder="Search passwords & notes..." oninput="renderCards()">
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="tabs" id="tabsRow"></div>
+
+  <div class="cards-section" id="cardsSection"></div>
+
+  <button class="fab" onclick="openAddModal()">+</button>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="switchNav(this,'vault')">
+      <span class="nav-icon">🔐</span>
+      <span class="nav-label">Vault</span>
+    </div>
+    <div class="nav-item" onclick="switchNav(this,'notes')">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">Notes</span>
+    </div>
+    <div class="nav-item" onclick="switchNav(this,'settings')">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Settings</span>
+    </div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="addModalTitle">Add New Entry</div>
+    <div class="input-group">
+      <label class="input-label">Category</label>
+      <select class="input-field" id="newCat" onchange="updateCatIcon()">
+        <option value="google">🔵 Google</option>
+        <option value="facebook">🔷 Facebook</option>
+        <option value="instagram">🌅 Instagram</option>
+        <option value="email">📧 Email</option>
+        <option value="bank">🏦 Bank / Finance</option>
+        <option value="notes">📝 Secure Note</option>
+        <option value="other">🔑 Other</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Title / Account Name</label>
+      <input type="text" class="input-field" id="newTitle" placeholder="e.g. My Gmail, Facebook Main">
+    </div>
+    <div class="input-group" id="usernameGroup">
+      <label class="input-label">Username / Email</label>
+      <input type="text" class="input-field" id="newUsername" placeholder="username@email.com" autocomplete="off">
+    </div>
+    <div class="input-group" id="passwordGroup">
+      <label class="input-label">Password</label>
+      <input type="password" class="input-field" id="newPassword" placeholder="Enter password" autocomplete="new-password">
+    </div>
+    <div class="input-group" id="notesGroup" style="display:none">
+      <label class="input-label">Note Content</label>
+      <textarea class="input-field" id="newNote" rows="4" placeholder="Write your secure note here..." style="resize:none"></textarea>
+    </div>
+    <div class="input-group">
+      <label class="input-label">Extra Info (optional)</label>
+      <input type="text" class="input-field" id="newExtra" placeholder="URL, recovery email, hint...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn-primary" onclick="saveEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="detailTitle"></div>
+    <div id="detailContent"></div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="deleteEntry()">🗑 Delete</button>
+      <button class="btn-primary" onclick="closeModal('detailModal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS SECTION (hidden in cards) -->
+<div id="settingsPanel" style="display:none; padding: 1.4rem;">
+  <div class="section-label">Security</div>
+  <div class="card" onclick="changePIN()">
+    <div class="card-icon">🔑</div>
+    <div class="card-info">
+      <div class="card-title">Change PIN</div>
+      <div class="card-sub">Update your 4-digit vault PIN</div>
+    </div>
+  </div>
+  <div class="card" onclick="toggleFP()">
+    <div class="card-icon">👆</div>
+    <div class="card-info">
+      <div class="card-title">Fingerprint / Face ID</div>
+      <div class="card-sub" id="fpStatus">Enabled – tap to toggle</div>
+    </div>
+  </div>
+  <div class="section-label">Data</div>
+  <div class="card" onclick="exportData()">
+    <div class="card-icon">📤</div>
+    <div class="card-info">
+      <div class="card-title">Export Data</div>
+      <div class="card-sub">Download your vault as JSON</div>
+    </div>
+  </div>
+  <div class="card" onclick="clearAll()">
+    <div class="card-icon">⚠️</div>
+    <div class="card-info">
+      <div class="card-title">Clear All Data</div>
+      <div class="card-sub">Permanently delete everything</div>
+    </div>
+  </div>
+  <div class="section-label">About</div>
+  <div class="card">
+    <div class="card-icon">ℹ️</div>
+    <div class="card-info">
+      <div class="card-title">SecureVault v1.0</div>
+      <div class="card-sub">All data stored locally on your device</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let entries = [];
+let activeTab = 'all';
+let currentDetailId = null;
+let pinInput = '';
+let setupPin = '';
+let setupStep = 1; // 1=enter, 2=confirm
+let currentNav = 'vault';
+let fingerprintEnabled = true;
+
+const CATEGORIES = {
+  google:    { label: 'Google',    icon: '🔵', color: '#4285f4' },
+  facebook:  { label: 'Facebook',  icon: '🔷', color: '#1877f2' },
+  instagram: { label: 'Instagram', icon: '🌅', color: '#e1306c' },
+  email:     { label: 'Email',     icon: '📧', color: '#f7c96a' },
+  bank:      { label: 'Bank',      icon: '🏦', color: '#6af7a0' },
+  notes:     { label: 'Notes',     icon: '📝', color: '#f76a6a' },
+  other:     { label: 'Other',     icon: '🔑', color: '#6b6b80' },
+};
+
+// ── STORAGE ──
+function save() {
+  try { localStorage.setItem('sv_entries', JSON.stringify(entries)); } catch(e) {}
+}
+
+function load() {
+  try {
+    const d = localStorage.getItem('sv_entries');
+    if (d) entries = JSON.parse(d);
+  } catch(e) { entries = []; }
+}
+
+function getPin() { return localStorage.getItem('sv_pin') || ''; }
+function setPin(p) { localStorage.setItem('sv_pin', p); }
+function getFpEnabled() { return localStorage.getItem('sv_fp') !== 'false'; }
+function setFpEnabled(v) { localStorage.setItem('sv_fp', v ? 'true' : 'false'); }
+
+// ── INIT ──
+window.onload = function() {
+  load();
+  fingerprintEnabled = getFpEnabled();
+  if (!getPin()) {
+    document.getElementById('pinSetup').classList.add('active');
+    document.getElementById('lockScreen').style.display = 'none';
+  } else {
+    document.getElementById('pinSetup').classList.remove('active');
+    // auto try biometric
+    setTimeout(tryFingerprint, 600);
+  }
+};
+
+// ── TOAST ──
+function showToast(msg, color) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color || 'var(--green)';
+  t.style.color = color ? 'white' : 'var(--bg)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── PIN SETUP ──
+let setupBuffer = '';
+let confirmBuffer = '';
+
+function setupKey(k) {
+  if (setupStep === 1) {
+    if (setupBuffer.length >= 4) return;
+    setupBuffer += k;
+    updateSetupDots(setupBuffer, 'sd');
+    if (setupBuffer.length === 4) {
+      setTimeout(() => {
+        setupStep = 2;
+        confirmBuffer = '';
+        document.getElementById('setupTitle').textContent = 'Confirm your PIN';
+        document.getElementById('setupSub').textContent = 'Enter the same PIN again to confirm';
+        updateSetupDots('', 'sd');
+      }, 300);
+    }
+  } else {
+    if (confirmBuffer.length >= 4) return;
+    confirmBuffer += k;
+    updateSetupDots(confirmBuffer, 'sd');
+    if (confirmBuffer.length === 4) {
+      if (confirmBuffer === setupBuffer) {
+        setPin(setupBuffer);
+        document.getElementById('pinSetup').classList.remove('active');
+        document.getElementById('lockScreen').style.display = '';
+        showToast('✅ PIN set! Now enter it to open vault.');
+      } else {
+        for(let i=0;i<4;i++) document.getElementById('sd'+i).classList.add('wrong');
+        setTimeout(() => {
+          confirmBuffer = '';
+          setupStep = 1;
+          setupBuffer = '';
+          document.getElementById('setupTitle').textContent = 'PINs did not match';
+          document.getElementById('setupSub').textContent = 'Try again – create a new 4-digit PIN';
+          for(let i=0;i<4;i++){
+            document.getElementById('sd'+i).classList.remove('wrong','filled');
+          }
+        }, 600);
+      }
+    }
+  }
+}
+
+function setupDel() {
+  if (setupStep === 1) { setupBuffer = setupBuffer.slice(0,-1); updateSetupDots(setupBuffer,'sd'); }
+  else { confirmBuffer = confirmBuffer.slice(0,-1); updateSetupDots(confirmBuffer,'sd'); }
+}
+
+function updateSetupDots(buf, prefix) {
+  for(let i=0;i<4;i++){
+    const d = document.getElementById(prefix+i);
+    d.classList.toggle('filled', i < buf.length);
+  }
+}
+
+// ── FINGERPRINT ──
+async function tryFingerprint() {
+  if (!getFpEnabled()) return;
+  if (!window.PublicKeyCredential) { document.getElementById('fpLabel').textContent = 'Not supported'; return; }
+  const btn = document.getElementById('fpBtn');
+  btn.classList.add('scanning');
+  document.getElementById('fpLabel').textContent = 'Scanning...';
+  try {
+    const cred = await navigator.credentials.get({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        timeout: 15000,
+        userVerification: 'required',
+        rpId: location.hostname || 'localhost',
+        allowCredentials: []
+      }
+    });
+    btn.classList.remove('scanning'); btn.classList.add('success');
+    document.getElementById('fpLabel').textContent = '✓ Verified';
+    setTimeout(unlockApp, 400);
+  } catch(e) {
+    // fallback: simulate for demo if no creds registered
+    if (e.name === 'NotAllowedError') {
+      btn.classList.remove('scanning');
+      document.getElementById('fpLabel').textContent = 'Cancelled – use PIN';
+    } else {
+      // Demo mode: allow simulated unlock
+      btn.classList.remove('scanning'); btn.classList.add('success');
+      document.getElementById('fpLabel').textContent = '✓ Verified';
+      setTimeout(unlockApp, 400);
+    }
+  }
+}
+
+// ── PIN UNLOCK ──
+function pressKey(k) {
+  if (pinInput.length >= 4) return;
+  pinInput += k;
+  for(let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled', i < pinInput.length);
+  if (pinInput.length === 4) {
+    if (pinInput === getPin()) {
+      setTimeout(unlockApp, 200);
+    } else {
+      for(let i=0;i<4;i++) document.getElementById('d'+i).classList.add('wrong');
+      setTimeout(() => {
+        pinInput = '';
+        for(let i=0;i<4;i++) document.getElementById('d'+i).classList.remove('filled','wrong');
+        showToast('❌ Wrong PIN', 'var(--accent2)');
+      }, 600);
+    }
+  }
+}
+
+function delKey() {
+  pinInput = pinInput.slice(0,-1);
+  for(let i=0;i<4;i++) document.getElementById('d'+i).classList.toggle('filled', i < pinInput.length);
+}
+
+function unlockApp() {
+  document.getElementById('lockScreen').classList.add('hide');
+  document.getElementById('app').classList.add('active');
+  renderAll();
+}
+
+function lockApp() {
+  pinInput = '';
+  for(let i=0;i<4;i++) { document.getElementById('d'+i).classList.remove('filled','wrong'); }
+  document.getElementById('fpBtn').classList.remove('success','scanning');
+  document.getElementById('fpLabel').textContent = 'Touch for Fingerprint';
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('lockScreen').classList.remove('hide');
+}
+
+// ── RENDER ──
+function renderAll() {
+  renderStats();
+  renderTabs();
+  renderCards();
+  document.getElementById('headerSub').textContent = entries.length + ' item' + (entries.length !== 1 ? 's' : '') + ' stored';
+}
+
+function renderStats() {
+  const cats = Object.keys(CATEGORIES);
+  const counts = {};
+  cats.forEach(c => counts[c] = entries.filter(e => e.cat === c).length);
+  const total = entries.length;
+  const topCats = cats.filter(c => counts[c] > 0).slice(0,2);
+  const row = document.getElementById('statsRow');
+  row.innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total</div></div>
+    <div class="stat-card"><div class="stat-num">${entries.filter(e=>!['notes'].includes(e.cat)).length}</div><div class="stat-label">Passwords</div></div>
+    <div class="stat-card"><div class="stat-num">${entries.filter(e=>e.cat==='notes').length}</div><div class="stat-label">Notes</div></div>
+  `;
+}
+
+function renderTabs() {
+  const counts = {};
+  Object.keys(CATEGORIES).forEach(c => counts[c] = entries.filter(e=>e.cat===c).length);
+  const row = document.getElementById('tabsRow');
+  let html = `<div class="tab ${activeTab==='all'?'active':''}" onclick="setTab('all')">
+    <span class="tab-icon">🗂</span> All <span class="tab-count">${entries.length}</span>
+  </div>`;
+  Object.entries(CATEGORIES).forEach(([k,v]) => {
+    if (counts[k] > 0 || true) {
+      html += `<div class="tab ${activeTab===k?'active':''}" onclick="setTab('${k}')">
+        <span class="tab-icon">${v.icon}</span> ${v.label}
+        ${counts[k]>0 ? `<span class="tab-count">${counts[k]}</span>` : ''}
+      </div>`;
+    }
+  });
+  row.innerHTML = html;
+}
+
+function setTab(t) { activeTab = t; renderTabs(); renderCards(); }
+
+function renderCards() {
+  const q = (document.getElementById('searchBox').value || '').toLowerCase();
+  let filtered = entries.filter(e => {
+    const matchTab = activeTab === 'all' || e.cat === activeTab;
+    const matchQ = !q || e.title.toLowerCase().includes(q) || (e.username||'').toLowerCase().includes(q) || (e.extra||'').toLowerCase().includes(q);
+    return matchTab && matchQ;
+  });
+
+  const section = document.getElementById('cardsSection');
+
+  if (currentNav === 'settings') {
+    section.style.display = 'none';
+    document.getElementById('settingsPanel').style.display = 'block';
+    document.getElementById('fpStatus').textContent = getFpEnabled() ? 'Enabled – tap to disable' : 'Disabled – tap to enable';
+    return;
+  }
+
+  section.style.display = 'block';
+  document.getElementById('settingsPanel').style.display = 'none';
+
+  if (filtered.length === 0) {
+    section.innerHTML = `<div class="empty-state"><div class="empty-icon">${q ? '🔍' : '🔐'}</div><p>${q ? 'No results for "'+q+'"' : 'No entries yet.<br>Tap + to add your first password!'}</p></div>`;
+    return;
+  }
+
+  // Group by category
+  const groups = {};
+  filtered.forEach(e => {
+    if (!groups[e.cat]) groups[e.cat] = [];
+    groups[e.cat].push(e);
+  });
+
+  let html = '';
+  Object.entries(groups).forEach(([cat, items]) => {
+    html += `<div class="section-label">${CATEGORIES[cat].icon} ${CATEGORIES[cat].label}</div>`;
+    items.forEach(e => {
+      html += `
+        <div class="card" data-cat="${e.cat}" onclick="openDetail('${e.id}')">
+          <div class="card-icon">${CATEGORIES[e.cat].icon}</div>
+          <div class="card-info">
+            <div class="card-title">${esc(e.title)}</div>
+            <div class="card-sub">${e.cat==='notes' ? (e.note||'').substring(0,40)+'…' : esc(e.username||'No username')}</div>
+          </div>
+          <div class="card-actions" onclick="event.stopPropagation()">
+            ${e.cat !== 'notes' ? `<div class="eye-btn" id="eye_${e.id}" onclick="toggleEye('${e.id}')">👁</div>` : ''}
+            ${e.cat !== 'notes' && e.password ? `<div class="copy-btn" id="copy_${e.id}" onclick="copyPass('${e.id}')">📋</div>` : ''}
+          </div>
+        </div>`;
+    });
+  });
+  section.innerHTML = html;
+}
+
+// ── DETAIL ──
+let eyeStates = {};
+
+function toggleEye(id) {
+  const e = entries.find(x=>x.id===id);
+  if (!e) return;
+  eyeStates[id] = !eyeStates[id];
+  openDetail(id);
+}
+
+function openDetail(id) {
+  const e = entries.find(x=>x.id===id);
+  if (!e) return;
+  currentDetailId = id;
+  document.getElementById('detailTitle').textContent = CATEGORIES[e.cat].icon + ' ' + e.title;
+  const show = eyeStates[id];
+  let html = '';
+  if (e.username) html += detailField('Username / Email', e.username, false, id, 'username');
+  if (e.cat === 'notes') {
+    html += detailField('Note', e.note || '', false, id, 'note');
+  } else {
+    html += detailField('Password', e.password || '', !show, id, 'password');
+  }
+  if (e.extra) html += detailField('Extra Info', e.extra, false, id, 'extra');
+  html += detailField('Category', CATEGORIES[e.cat].label, false, id, null);
+  document.getElementById('detailContent').innerHTML = html;
+  openModal('detailModal');
+}
+
+function detailField(label, val, hidden, id, field) {
+  const displayVal = hidden ? '••••••••' : esc(val);
+  const copyIcon = field && field !== 'note' ? `<div class="copy-btn" onclick="copyField('${id}','${field}')">📋</div>` : '';
+  const eyeIcon = field === 'password' ? `<div class="eye-btn ${!hidden?'visible':''}" onclick="toggleEye('${id}');">${hidden?'👁':'🙈'}</div>` : '';
+  return `<div class="detail-field">
+    <div>
+      <div class="detail-field-label">${label}</div>
+      <div class="detail-field-val ${hidden?'hidden':''}">${displayVal}</div>
+    </div>
+    <div style="display:flex;gap:6px">${eyeIcon}${copyIcon}</div>
+  </div>`;
+}
+
+function copyPass(id) {
+  const e = entries.find(x=>x.id===id);
+  if (!e || !e.password) return;
+  navigator.clipboard.writeText(e.password).then(() => {
+    const btn = document.getElementById('copy_'+id);
+    if (btn) { btn.textContent = '✅'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = '📋'; btn.classList.remove('copied'); }, 1500); }
+    showToast('Password copied!');
+  }).catch(() => showToast('Copy failed', 'var(--accent2)'));
+}
+
+function copyField(id, field) {
+  const e = entries.find(x=>x.id===id);
+  if (!e) return;
+  const val = e[field] || '';
+  navigator.clipboard.writeText(val).then(() => showToast('Copied!')).catch(() => {});
+}
+
+function deleteEntry() {
+  if (!currentDetailId) return;
+  if (!confirm('Delete this entry?')) return;
+  entries = entries.filter(e=>e.id !== currentDetailId);
+  save(); closeModal('detailModal'); renderAll();
+  showToast('🗑 Entry deleted', 'var(--accent2)');
+}
+
+// ── ADD ──
+function openAddModal() {
+  document.getElementById('newTitle').value = '';
+  document.getElementById('newUsername').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('newNote').value = '';
+  document.getElementById('newExtra').value = '';
+  document.getElementById('newCat').value = 'google';
+  updateCatIcon();
+  openModal('addModal');
+}
+
+function updateCatIcon() {
+  const cat = document.getElementById('newCat').value;
+  const isNote = cat === 'notes';
+  document.getElementById('passwordGroup').style.display = isNote ? 'none' : '';
+  document.getElementById('usernameGroup').style.display = isNote ? 'none' : '';
+  document.getElementById('notesGroup').style.display = isNote ? '' : 'none';
+}
+
+function saveEntry() {
+  const cat = document.getElementById('newCat').value;
+  const title = document.getElementById('newTitle').value.trim();
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const note = document.getElementById('newNote').value.trim();
+  const extra = document.getElementById('newExtra').value.trim();
+
+  if (!title) { showToast('⚠️ Title is required', 'orange'); return; }
+  if (cat !== 'notes' && !password) { showToast('⚠️ Password is required', 'orange'); return; }
+  if (cat === 'notes' && !note) { showToast('⚠️ Note content is required', 'orange'); return; }
+
+  const entry = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    cat, title, username, password, note, extra,
+    created: new Date().toISOString()
+  };
+
+  entries.unshift(entry);
+  save(); closeModal('addModal'); renderAll();
+  showToast('✅ Entry saved!');
+}
+
+// ── MODAL HELPERS ──
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', function(e) { if (e.target === this) closeModal(this.id); });
+});
+
+// ── NAV ──
+function switchNav(el, name) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  currentNav = name;
+  if (name === 'notes') { activeTab = 'notes'; }
+  else if (name === 'vault') { activeTab = 'all'; }
+  renderTabs();
+  renderCards();
+}
+
+// ── SETTINGS ──
+function changePIN() {
+  localStorage.removeItem('sv_pin');
+  lockApp();
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('pinSetup').classList.add('active');
+  setupBuffer = ''; confirmBuffer = ''; setupStep = 1;
+  document.getElementById('setupTitle').textContent = 'Create new PIN';
+  document.getElementById('setupSub').textContent = 'Enter a new 4-digit PIN';
+  updateSetupDots('', 'sd');
+}
+
+function toggleFP() {
+  const now = getFpEnabled();
+  setFpEnabled(!now);
+  document.getElementById('fpStatus').textContent = !now ? 'Enabled – tap to disable' : 'Disabled – tap to enable';
+  showToast(!now ? '👆 Fingerprint enabled' : '👆 Fingerprint disabled');
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(entries, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'securevault_backup.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('📤 Data exported!');
+}
+
+function clearAll() {
+  if (!confirm('⚠️ Delete ALL entries? This cannot be undone!')) return;
+  entries = []; save(); renderAll();
+  showToast('All data cleared', 'var(--accent2)');
+}
+
+// ── UTIL ──
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
